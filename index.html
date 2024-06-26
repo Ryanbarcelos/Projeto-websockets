@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat com RPC e Threads</title>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="threadSelection">
+        <!-- Botões para seleção de threads -->
+        <button onclick="switchThread('general')">Chat 1</button>
+        <button onclick="switchThread('sales')">Chat 2</button>
+        <!-- Adicione mais botões conforme necessário -->
+    </div>
+
+    <div id="chat">
+        <div id="messages" class="messages"></div>
+        <input type="text" name="username" placeholder="Digite seu usuário">
+        <input type="text" name="message" placeholder="Digite sua mensagem">
+        <button type="submit" onclick="sendMessage()">Enviar</button>
+    </div>
+
+    <script>
+        var socket = io();
+        var currentThread = 'general'; // Thread inicial
+
+        // Função para alternar entre as threads
+        function switchThread(threadId) {
+            currentThread = threadId;
+            socket.emit("joinThread", threadId); // Envia ao servidor para entrar na thread selecionada
+        }
+
+        // Função para enviar mensagem na thread atual
+        function sendMessage() {
+            var username = $('input[name=username]').val();
+            var message = $('input[name=message]').val();
+
+            if (username.length && message.length) {
+                var messageObject = {
+                    author: username,
+                    message: message
+                };
+
+                socket.emit('sendMessage', { threadId: currentThread, message: messageObject });
+                $('input[name=message]').val('');
+            }
+        }
+
+        // Receber mensagens da thread atual
+        socket.on('threadMessages', function(messages) {
+            renderMessages(messages);
+        });
+
+        // Receber mensagem enviada na thread atual
+        socket.on('receivedMessage', function(message) {
+            renderSingleMessage(message);
+        });
+
+        // Função para renderizar uma única mensagem na interface
+        function renderSingleMessage(message) {
+            $('.messages').append('<div class="message"><strong>' + message.author + '</strong>: ' + message.message + '</div>');
+        }
+
+        // Função para renderizar várias mensagens na interface
+        function renderMessages(messages) {
+            $('.messages').empty();
+            messages.forEach(message => {
+                renderSingleMessage(message);
+            });
+        }
+
+        // RPC Call Example
+        function rpcExample() {
+            var params = {
+                method: 'multiply',
+                args: { a: 3, b: 4 }
+            };
+
+            socket.emit('rpcCall', params, (err, result) => {
+                if (err) {
+                    console.error('Erro ao chamar RPC:', err);
+                } else {
+                    console.log('Resultado do RPC:', result);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
