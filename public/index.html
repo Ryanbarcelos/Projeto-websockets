@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat com RPC e Threads</title>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script> <!-- Import do socket.io -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- Import do jquery -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="threadSelection">
+        <!-- Botões para selecionar as threads -->
+        <button onclick="switchThread('general')">Chat 1</button>
+        <button onclick="switchThread('sales')">Chat 2</button>
+       
+    </div>
+
+    <div id="chat">
+        <div id="messages" class="messages"></div>
+        <input type="text" name="username" placeholder="Digite seu usuário">
+        <input type="text" name="message" placeholder="Digite sua mensagem">
+        <button type="submit" onclick="sendMessage()">Enviar</button>
+        <button onclick="rpcMultiply()">Multiplicar</button> <!-- Botão para  chamar a função RPC -->
+    </div>
+
+    <script>
+        var socket = io(); //Inicializa conexão com o servidor do socket.io
+        var currentThread = 'general'; // Thread inicial
+
+        // Função para alternar entre as threads
+        function switchThread(threadId) {
+            currentThread = threadId;
+            socket.emit("joinThread", threadId); // Envia ao servidor para entrar na thread selecionada
+        }
+
+        // Função para enviar mensagem na thread atual captura o usuario e a mensagem e envia ao servidor
+        function sendMessage() {
+            var username = $('input[name=username]').val();
+            var message = $('input[name=message]').val();
+
+            if (username.length && message.length) {
+                var messageObject = {
+                    author: username,
+                    message: message
+                };
+
+                socket.emit('sendMessage', { threadId: currentThread, message: messageObject });
+                $('input[name=message]').val('');
+            }
+        }
+
+        // Receber mensagens da thread atual e renderizar na interface
+        socket.on('threadMessages', function(messages) {
+            renderMessages(messages);
+        });
+
+        // Receber mensagem enviada na thread atual
+        socket.on('receivedMessage', function(message) {
+            renderSingleMessage(message);
+        });
+
+        // Função para renderizar uma única mensagem na interface
+        function renderSingleMessage(message) {
+            $('.messages').append('<div class="message"><strong>' + message.author + '</strong>: ' + message.message + '</div>');
+        }
+
+        // Função para renderizar várias mensagens na interface
+        function renderMessages(messages) {
+            $('.messages').empty();
+            messages.forEach(message => {
+                renderSingleMessage(message);
+            });
+        }
+
+        // Funçao pra chamar o metodo multiply do RPC com os parametros ja passados nesse caso a = 3 e b = 4
+        function rpcExample() {
+            var params = {
+                method: 'multiply',
+                args: { a: 3, b: 4 }
+            };
+
+            socket.emit('rpcCall', params, (err, result) => { //Envia um evento de rpcCall passando os parametros para o servidor
+                if (err) {
+                    console.error('Erro ao chamar RPC:', err);
+                } else {
+                    console.log('Resultado do RPC:', result);
+                }
+            }); //depois tem um callback com a resposta do servidor err se tiver um error e result se tiver um resultado e registrado no console
+        }
+
+        // Função para chamar o RPC de multiplicação
+        function rpcMultiply() {
+            var a = 5; // exemplo de valor
+            var b = 10; // exemplo de valor
+
+            var params = {
+                method: 'multiply',
+                args: { a: a, b: b }
+            };
+
+            socket.emit('rpcCall', params, (err, result) => {
+                if (err) {
+                    console.error('Erro ao chamar RPC:', err);
+                } else {
+                    console.log('Resultado do RPC:', result);
+                    alert('Resultado da multiplicação: ' + result); // Aqui mesma ideia ali de cima o servidor recebe os parametros e faz um callback com o resultado
+                    //O servidor RPC é integrado ao servidor principal que e configurado com socket e express, e as chamadas rpc sao tratadas pela função handleRPC que processa o metodo e retorna o resultado. Graças a configuração  do socket.io quye permite escuta eventos de conexao das mensagens e das chamadas RPC.
+                }
+            });
+        }
+    </script>
+</body>
+</html>
